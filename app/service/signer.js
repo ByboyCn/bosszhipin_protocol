@@ -1,7 +1,8 @@
 'use strict';
 
 const { Service } = require('egg');
-const axios = require('axios');
+const crypto = require('crypto');
+const lz4 = require('lz4');
 
 module.exports = class extends Service {
   async urlHandle(url) {
@@ -64,7 +65,7 @@ module.exports = class extends Service {
       secretKey = account.secretKey;
     }
     const decodeType = await ctx.service.signer.parseResponseHeaders(headers);
-    return await this.decode(buffer, secretKey || '', ...decodeType);
+    return await this.decode(buffer, decodeType, secretKey);
   }
   /**
    * @param { String } url url
@@ -78,55 +79,78 @@ module.exports = class extends Service {
     params.req_time = timestamp.toString();
     const key2 = await this.paramsHandle(params);
     const str = key1 + key2;
-    // TODO: 算法未还原 使用http请求签名服务器进行签名
-    let sign;
-    const { status, data } = await axios.post('http://192.168.31.163:7001/sign', { hex: Buffer.from(str).toString('hex'), key });
-    if (status === 200 && data) {
-      sign = data;
-    }
+    const sign = 'V2.0' + crypto.createHash('md5').update(`${str}a308f3628b3f39f7d35cdebeb6920e21${key || ''}`).digest('hex');
     return sign;
   }
   /**
    * @param { Buffer } buffer 加密内容
+   * @param { Object } decodeType encoding
    * @param { String } key 密钥
-   * @param { Number } encoding encoding
-   * @param { Number } encrypting encrypting
-   * @param { Number } compressing compressing
-   * @param { boolean } responseType 返回类型
+   * @param { boolean } returnType 返回类型
    * @return { String } content 内容
    */
-  async decode(buffer, key, encoding, encrypting, compressing, responseType = '') {
-    // TODO: 算法未还原 使用http请求签名服务器进行签名
-    let content;
-    const { status, data } = await axios.post('http://192.168.31.163:7001/decode', { hex: Buffer.from(buffer).toString('hex'), key, encoding, encrypting, compressing }, { responseType });
-    if (status === 200 && data) {
-      content = data;
-    }
-    return content;
-  }
-  async parseResponseHeaders(heasers) {
-    return [ heasers['zp-encoding'] || 0,
-      heasers['zp-encrypting'] || 0,
-      heasers['zp-compressing'] || 0 ].map(o => parseInt(o));
-  }
-  async parseLoginResponse(response, decodeType) {
-    const { ctx } = this;
-    response = await ctx.service.signer.decode(response, '', ...decodeType, 'arraybuffer');
-    const responseString = Buffer.from(response).toString();
-    try {
-      // 判断是不是json
-      return JSON.parse(responseString);
-    } catch (error) {
-      if (responseString.includes('-') || responseString.includes('~') || responseString.includes('_')) {
-        // 魔改base64
-        const base64 = responseString.replace(/_/g, '/').replace(/-/g, '+').replace(/~/g, '=');
-        if (await ctx.isBase64(base64)) {
-          // 改之后是base64
-          return await this.parseLoginResponse(Buffer.from(base64, 'base64'), [ 0, 1, 0 ]);
-        }
+  async decode(buffer, decodeType, key, returnType) {
+    let { responseType, encoding, encrypting, compressing } = decodeType;
+    console.log('decodeContent', responseType, buffer.length, key, encoding, encrypting, compressing);
+    let target = buffer;
+    if (responseType === 'json') {
+      // 返回了json
+    } else {
+      if (responseType === 'base64') {
+        // 返回了base64
+        buffer = Buffer.from(buffer.toString(), 'base64');
+        encrypting = 1;
       }
-      // 改之后还不是base64 再把buffer解密一次
-      return await this.parseLoginResponse(response, decodeType);
+      // 其他情况都是返回buffer
+      if (encrypting === 1) target = await this.rc4(target, key);
+      if (compressing === 2) target = await this.lz4DeCompressing(target);
+      if (returnType === 'bufferArray') return target;
     }
+    try {
+      target = target.toString('utf-8');
+      // 移除填充的内容
+      target = JSON.parse(target);
+    } catch (error) {
+      console.log('解析返回内容失败', target);
+    }
+    return target;
+  }
+  async parseResponseHeaders(headers) {
+    const obj = { encoding: headers['zp-encoding'], encrypting: headers['zp-encrypting'], compressing: headers['zp-compressing'] };
+    for (const key in obj) {
+      obj[key] = parseInt(obj[key] || 0);
+    }
+    if (headers['content-encrypt'] === 'yes') {
+      Object.assign(obj, { responseType: 'base64' });
+    } else {
+      if (!Object.values(obj).filter(o => o !== 0).length) {
+        // 直接返回了json
+        Object.assign(obj, { responseType: 'json' });
+      }
+    }
+    return obj;
+  }
+  async rc4(buffer, key) {
+    key = 'a308f3628b3f39f7d35cdebeb6920e21' + (key || '');
+    const cipher = crypto.createCipheriv('rc4', key, '');
+    const ciphertext = cipher.update(buffer, 'buffer', 'buffer');
+    return ciphertext;
+  }
+  /**
+   * @param { Buffer } buffer result
+   * @return { Buffer } result
+   */
+  async lz4DeCompressing(buffer) {
+    const contentSize = buffer.length;
+    // 移除BZPBlock头
+    buffer = buffer.slice(24, buffer.length);
+    // eslint-disable-next-line no-bitwise
+    let decodeSize = 2 * buffer.length; // 预分配空间
+    // DWORD 4字节 QWORD 8字节
+    // 2021-08-26 14:26:41.607 9962-10216/com.hpbr.bosszhipin D/YZWG: lz4 compressSize = [6227], decodeSize = [10662], checksum = [12789], content size =[6251], result =[1]
+    const output = Buffer.alloc(decodeSize);
+    decodeSize = lz4.decodeBlock(buffer, output);
+    console.log(`compressSize = [${buffer.length}], decodeSize = [${decodeSize}], content size = [${contentSize}]`);
+    return output.slice(0, decodeSize);
   }
 };

@@ -27,7 +27,7 @@ module.exports = class extends Service {
     // 发送请求
     const { data, headers } = await axios.post(url, null, requestData);
     const decodeType = await ctx.service.signer.parseResponseHeaders(headers);
-    const content = await ctx.service.signer.decode(data, '', ...decodeType);
+    const content = await ctx.service.signer.decode(data, decodeType);
     // 保存到redis
     await ctx.service.client.setClientInfo(uuid, {
       curidentity: 0,
@@ -50,7 +50,7 @@ module.exports = class extends Service {
     // 发送请求
     const { data, headers } = await axios.post(url, null, requestData);
     const decodeType = await ctx.service.signer.parseResponseHeaders(headers);
-    const content = await ctx.service.signer.decode(data, '', ...decodeType);
+    const content = await ctx.service.signer.decode(data, decodeType);
     await app.redis.hset('MACHINE', uuid, content.zpData.startCaptcha);
     return { success: true, data: content };
   }
@@ -76,7 +76,7 @@ module.exports = class extends Service {
     // 发送请求
     const { data, headers } = await axios.get(url, requestData);
     const decodeType = await ctx.service.signer.parseResponseHeaders(headers);
-    const content = await ctx.service.signer.decode(data, '', ...decodeType);
+    const content = await ctx.service.signer.decode(data, decodeType);
     return { success: true, data: content };
   }
   // 验证码登录 TODO: 需要过验证码
@@ -98,7 +98,7 @@ module.exports = class extends Service {
     // 发送请求
     const { data, headers } = await axios.get(url, requestData);
     const decodeType = await ctx.service.signer.parseResponseHeaders(headers);
-    const content = await ctx.service.signer.decode(data, '', ...decodeType);
+    const content = await ctx.service.signer.decode(data, decodeType);
     return { success: true, data: content };
   }
   // 使用网页的验证码登录 漏洞
@@ -118,7 +118,7 @@ module.exports = class extends Service {
     // 发送请求
     const { data, headers } = await axios.get(url, requestData);
     const decodeType = await ctx.service.signer.parseResponseHeaders(headers);
-    const content = await ctx.service.signer.parseLoginResponse(data, decodeType);
+    const content = await ctx.service.signer.decode(data, decodeType);
     // 正常的情况
     if (content.code === 0 && content.zpData) {
       content.zpData.uuid = uuid;

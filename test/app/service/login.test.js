@@ -38,7 +38,7 @@ describe('login test', () => {
   it.only('smsLoginByWebCode', async () => {
     await app.ready();
     const ctx = app.mockContext();
-    const { success, data, message } = await ctx.service.login.smsLoginByWebCode('13018508078', '546783');
+    const { success, data, message } = await ctx.service.login.smsLoginByWebCode('13018508078', '292851');
     if (!success) console.error(message);
     else console.log(data);
   });
