@@ -9,7 +9,7 @@ describe('company test', () => {
     const ctx = app.mockContext();
     const { data, message } = await ctx.service.company.searchCompany(uuid);
     if (message) console.error(message);
-    console.log(JSON.stringify(data));
+    ctx.logger.info(JSON.stringify(data));
   });
   it('company detail', async () => {
     await app.ready();
@@ -20,6 +20,6 @@ describe('company test', () => {
       'otrqzJOFavvnQ-h1q_GZcqzIqqyxxQWuGpgEc6GNo4n7aKmKO4Bey1BTTs72_eoeHOIQqTwvrk12AjxPFoaeibrHlYNV61Sp9JHMNPYeiJPDArNTxwHSbuomhgJ1ZvfrcwRbxQdy-CBLQfu7fEzaAzBzSPjYNedX3V4o0t4gzsLpJVUXMAP_pAitzEkea9oqk4he9XRajpvQRK73eHyZwquhOZ6UNtqzgNI-CVqRwISyYeBzomdlGJP8VT0HoxVDrwjSwBwP'
     );
     if (message) console.error(message);
-    console.log(JSON.stringify(data));
+    ctx.logger.info(JSON.stringify(data));
   });
 });

@@ -51,7 +51,9 @@ module.exports = class extends Service {
     const { data, headers } = await axios.post(url, null, requestData);
     const decodeType = await ctx.service.signer.parseResponseHeaders(headers);
     const content = await ctx.service.signer.decode(data, decodeType);
-    await app.redis.hset('MACHINE', uuid, content.zpData.startCaptcha);
+    if (content.code === 0 && content.zpData) {
+      await app.redis.hset('MACHINE', uuid, content.zpData.startCaptcha);
+    }
     return { success: true, data: content };
   }
   // 发送验证码 TODO: 需要过验证码

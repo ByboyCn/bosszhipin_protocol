@@ -90,19 +90,26 @@ module.exports = class extends Service {
    * @return { String } content 内容
    */
   async decode(buffer, decodeType, key, returnType) {
+    const { ctx } = this;
     let { responseType, encoding, encrypting, compressing } = decodeType;
-    console.log('decodeContent', responseType, buffer.length, key, encoding, encrypting, compressing);
+    ctx.logger.info('decodeContent', responseType, buffer.length, key, encoding, encrypting, compressing);
     let target = buffer;
     if (responseType === 'json') {
       // 返回了json
     } else {
       if (responseType === 'base64') {
         // 返回了base64
-        buffer = Buffer.from(buffer.toString(), 'base64');
+        const fuckBase64 = buffer.toString();
+        ctx.logger.info('魔改base64', fuckBase64);
+        target = Buffer.from(fuckBase64, 'base64');
         encrypting = 1;
+        ctx.logger.info('base64', target.toString('base64'));
       }
       // 其他情况都是返回buffer
-      if (encrypting === 1) target = await this.rc4(target, key);
+      if (encrypting === 1) {
+        target = await this.rc4(target, key);
+        ctx.logger.info('encrypting', target.toString('hex'));
+      }
       if (compressing === 2) target = await this.lz4DeCompressing(target);
       if (returnType === 'bufferArray') return target;
     }
@@ -111,7 +118,7 @@ module.exports = class extends Service {
       // 移除填充的内容
       target = JSON.parse(target);
     } catch (error) {
-      console.log('解析返回内容失败', target);
+      ctx.logger.info('解析返回内容失败', target);
     }
     return target;
   }
@@ -141,6 +148,7 @@ module.exports = class extends Service {
    * @return { Buffer } result
    */
   async lz4DeCompressing(buffer) {
+    const { ctx } = this;
     const contentSize = buffer.length;
     // 移除BZPBlock头
     buffer = buffer.slice(24, buffer.length);
@@ -150,7 +158,7 @@ module.exports = class extends Service {
     // 2021-08-26 14:26:41.607 9962-10216/com.hpbr.bosszhipin D/YZWG: lz4 compressSize = [6227], decodeSize = [10662], checksum = [12789], content size =[6251], result =[1]
     const output = Buffer.alloc(decodeSize);
     decodeSize = lz4.decodeBlock(buffer, output);
-    console.log(`compressSize = [${buffer.length}], decodeSize = [${decodeSize}], content size = [${contentSize}]`);
+    ctx.logger.info(`compressSize = [${buffer.length}], decodeSize = [${decodeSize}], content size = [${contentSize}]`);
     return output.slice(0, decodeSize);
   }
 };
