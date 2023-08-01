@@ -2,32 +2,10 @@
 
 Boss直聘Android协议
 
-## QuickStart
+# 2023-08-01
 
-<!-- add docs here for user -->
+已经是2年前的项目，包含了当时的签名算法，压缩算法的还原。
 
-see [egg docs][egg] for more detail.
+现在可能已经改了，现在已经不怎么接触逆向了，开源给有需要的人当做研究资料吧
 
-### Development
-
-```bash
-$ npm i
-$ npm run dev
-$ open http://localhost:7001/
-```
-
-### Deploy
-
-```bash
-$ npm start
-$ npm stop
-```
-
-### npm scripts
-
-- Use `npm run lint` to check code style.
-- Use `npm test` to run unit test.
-- Use `npm run autod` to auto detect dependencies upgrade, see [autod](https://www.npmjs.com/package/autod) for more detail.
-
-
-[egg]: https://eggjs.org
+仅用于安卓安全学习研究
